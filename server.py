@@ -107,7 +107,7 @@ class Cluster(dict):
 
 
 if __name__ == '__main__':
-    found = Cluster.find_cluster()
+    found = Cluster.find_cluster(r"remote05\.cs\.binghamton\.edu")
         # input("Please enter a hostname mask (regex): "))
     print("Found nodes, Cluster is:", found)
     found.initiate()
