@@ -40,18 +40,17 @@ class Node(object):
             conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 5)
             while True:
                 cmd = self.command_queue.get()
-                print(cmd)
                 to_send = ClusterCommand()
                 to_send.type, to_send.data = cmd
                 size = to_send.ByteSize()
                 conn.send(_VarintBytes(size))
-                print
                 conn.send(to_send.SerializeToString())
 
 class Cluster(dict):
     def __init__(self, *args, hostname=None, **kwargs):
         super(Cluster, self).__init__(*args, **kwargs)
         self.active_nodes = []
+        self.data_dir = Path(__file__).parent.resolve()
         self.hostname = hostname
         self.scheduled = 0
 
@@ -68,31 +67,26 @@ class Cluster(dict):
         return cls({host: ip for host, ip in regexp.findall(ran.stdout.decode())}, hostname=hostname)
 
     def initiate(self):
-        directory = Path(__file__).parent.resolve()
-        client = directory / "client.py"
-        print(client)
+        client = self.data_dir / "client.py"
 
         for host in self:
             subprocess.run(f"ssh -f {host} python3 {client} {host}".split())
         sleep(1)
         for host, ip in self.items():
-            with (directory / "active_nodes" / f"{host}.node").open() as f:
+            with (self.data_dir / "active_nodes" / f"{host}.node").open() as f:
                 port = int(f.read())
                 self.active_nodes.append(Node(host, ip, port))
+        self.cd(getcwd())
 
     def shell(self):
         user = getpass.getuser()
         while True:
             cmd = input(f"{user}@user_cluster({self.hostname}) [nodes={len(self.active_nodes)}]:{getcwd()}$ ")
             if cmd[:2] == "cd":
-                try:
-                    chdir(cmd[2:])
-                except FileNotFoundError as e:
-                    print(e.strerror, file=stderr)
+                self.cd(cmd[2:].strip())
                 continue
             if cmd[:4] == "crun":
-                print(cmd)
-                self.crun(cmd[4:])
+                self.crun(cmd[4:].strip())
                 continue
             subprocess.run(cmd.split())
 
@@ -100,9 +94,24 @@ class Cluster(dict):
         on = self.scheduled
         self.scheduled += 1
         self.scheduled %= len(self.active_nodes)
-        print(cmd)
         self.active_nodes[on].command_queue.put(("run", cmd))
-        print("put on queue")
+
+    def cd(self, loc):
+        print(getcwd())
+        print(loc)
+        try:
+            chdir(loc)
+        except FileNotFoundError as e:
+            print(e.strerror, file=stderr)
+        else:
+            print(getcwd())
+            print(__file__)
+            directory = Path(__file__).parent.resolve()
+            print(directory)
+            with (self.data_dir / "active_nodes" / "active_directory").open('w') as f:
+                f.write(getcwd())
+            for node in self.active_nodes:
+                node.command_queue.put(("cd", loc))
 
 
 
