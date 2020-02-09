@@ -12,12 +12,12 @@ class Handler(BaseRequestHandler):
         while True:
             self.log_file.write("handling")
             self.log_file.flush()
-            self.log_file.write("am I stcuK")
-            self.log_file.flush()
+#            self.log_file.write("am I stcuK")
+#            self.log_file.flush()
             buf = self.request.recv(1024)
-            self.log_file.write(f"made it here {len(buf)}\n")
+#            self.log_file.write(f"made it here {len(buf)}\n")
             self.log_file.flush()
-            self.log_file.write(f"{repr(buf)}\n")
+#            self.log_file.write(f"{repr(buf)}\n")
             self.log_file.flush()
             n = 0
             while n < len(buf):
@@ -33,7 +33,7 @@ class Handler(BaseRequestHandler):
                 cmd = ClusterCommand()
                 cmd.ParseFromString(msg_buf)
                 getattr(self, f"handle_{cmd.type}")(cmd.data)
-                self.log_file.write("test\n")
+#                self.log_file.write("test\n")
                 self.log_file.flush()
 
     def handle_run(self, data):

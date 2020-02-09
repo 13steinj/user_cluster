@@ -90,14 +90,18 @@ class Cluster(dict):
     def shell(self):
         user = getpass.getuser()
         while True:
-            cmd = input(f"{user}@user_cluster({self.hostname}) [nodes={len(self.active_nodes)}]:{getcwd()}$ ")
-            if cmd[:2] == "cd":
-                self.cd(cmd[2:].strip())
-                continue
-            if cmd[:4] == "crun":
-                self.crun(cmd[4:].strip())
-                continue
-            subprocess.run(cmd.split())
+            try:
+                cmd = input(f"{user}@user_cluster({self.hostname}) [nodes={len(self.active_nodes)}]:{getcwd()}$ ")
+                if cmd[:2] == "cd":
+                    self.cd(cmd[2:].strip())
+                    continue
+                if cmd[:4] == "crun":
+                    self.crun(cmd[4:].strip())
+                    continue
+                subprocess.run(cmd.split())
+            except (KeyboardInterrupt, EOFError) as e:
+                print("exit")
+                break
 
     def crun(self, cmd):
         on = self.scheduled
@@ -106,27 +110,21 @@ class Cluster(dict):
         self.active_nodes[on].command_queue.put(("run", cmd))
 
     def cd(self, loc):
-        print(getcwd())
-        print(loc)
         try:
             chdir(loc)
         except FileNotFoundError as e:
             print(e.strerror, file=stderr)
         else:
-            print(getcwd())
-            print(__file__)
-            directory = Path(__file__).parent.resolve()
-            print(directory)
             with (self.data_dir / "active_nodes" / "active_directory").open('w') as f:
                 f.write(getcwd())
             for node in self.active_nodes:
+                print(node)
                 node.command_queue.put(("cd", loc))
 
 
 
 if __name__ == '__main__':
-    found = Cluster.find_cluster(r"remote05\.cs\.binghamton\.edu")
-        # input("Please enter a hostname mask (regex): "))
+    found = Cluster.find_cluster(input("Please enter a hostname mask (regex): "))
     print("Found nodes, Cluster is:", found)
     found.initiate()
     found.shell()
