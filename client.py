@@ -3,6 +3,8 @@ from socketserver import ThreadingTCPServer, BaseRequestHandler
 from ClusterCommand_pb2 import ClusterCommand
 from pathlib import Path
 from sys import argv
+from os import chdir
+from subprocess import run
 
 
 class Handler(BaseRequestHandler):
@@ -34,8 +36,14 @@ class Handler(BaseRequestHandler):
                 self.log_file.write("test\n")
                 self.log_file.flush()
 
+    def handle_run(self, data):
+        self.log_file.write(f"running: {data}\n")
+        self.log_file.flush()
+        run(data.split())
+
     def handle_cd(self, loc):
         with (self.data_dir / "active_nodes" / "active_directory").open() as f:
+            chdir(f.read())
             self.log_write(loc)
             self.log_file.flush()
 

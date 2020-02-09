@@ -32,19 +32,28 @@ class Node(object):
         self.thread.start()
 
     def activate(self):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as conn:
-            conn.connect((self.hostname, self.port))
-            conn.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-            conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 1)
-            conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 5)
-            conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 5)
-            while True:
-                cmd = self.command_queue.get()
-                to_send = ClusterCommand()
-                to_send.type, to_send.data = cmd
-                size = to_send.ByteSize()
-                conn.send(_VarintBytes(size))
-                conn.send(to_send.SerializeToString())
+        retry = None
+        while True:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as conn:
+                conn.connect((self.hostname, self.port))
+                conn.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+                conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 1)
+                conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 5)
+                conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 5)
+                while True:
+                    if retry is None:
+                        cmd = self.command_queue.get()
+                        to_send = ClusterCommand()
+                        to_send.type, to_send.data = cmd
+                    else:
+                        to_send = retry
+                    size = to_send.ByteSize()
+                    try:
+                        conn.send(_VarintBytes(size) + to_send.SerializeToString())
+                        retry = None
+                    except BrokenPipeError:
+                        retry = to_send
+                        break
 
 class Cluster(dict):
     def __init__(self, *args, hostname=None, **kwargs):
