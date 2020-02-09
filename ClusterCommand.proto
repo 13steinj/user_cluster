@@ -1,0 +1,8 @@
+syntax = "proto2";
+
+package user_cluster;
+
+message ClusterCommand {
+  required string type = 1;
+  required string data = 2;
+}
